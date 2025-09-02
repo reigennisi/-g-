@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>100gあたり計算機</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { 
+      font-family: sans-serif; 
+      margin: 20px; 
+      background: #f8f9fa; 
+      color: #000;
+      transition: background 0.3s, color 0.3s;
+    }
+    h2 { text-align: center; }
+    .input-box {
+      background: #fff;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      margin-bottom: 15px;
+      transition: background 0.3s;
+    }
+    label { display: block; margin: 10px 0 5px; }
+    input {
+      width: 100%; padding: 8px; font-size: 16px;
+      border: 1px solid #ccc; border-radius: 5px;
+    }
+    button {
+      padding: 6px 10px; font-size: 14px;
+      border: none; border-radius: 5px;
+      cursor: pointer;
+    }
+    .add-btn {
+      width: 100%; padding: 10px; font-size: 16px;
+      margin-top: 15px; background: #007bff; color: white;
+    }
+    .add-btn:hover { background: #0056b3; }
+    .del-btn { background: #dc3545; color: white; }
+    .del-btn:hover { background: #a71d2a; }
+    .off-btn { background: #28a745; color: white; margin-left: 5px; }
+    .off-btn:hover { background: #1e7e34; }
+    table {
+      width: 100%; border-collapse: collapse;
+      margin-top: 20px; background: #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      transition: background 0.3s;
+    }
+    th, td {
+      padding: 10px; border: 1px solid #ddd; text-align: center;
+    }
+    th { background: #007bff; color: white; }
+
+    /* 夜間モード */
+    body.dark {
+      background: #121212;
+      color: #f0f0f0;
+    }
+    body.dark .input-box, body.dark table {
+      background: #1e1e1e;
+    }
+    body.dark th { background: #444; }
+    body.dark td, body.dark input {
+      background: #2c2c2c;
+      color: #f0f0f0;
+      border: 1px solid #555;
+    }
+    /* 夜間モード切替ボタン */
+    #modeToggle {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: #007bff;
+      color: white;
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <button id="modeToggle">🌙</button>
+  <h2>100gあたり計算機</h2>
+  <div class="input-box">
+    <label>商品名: <input type="text" id="name"></label>
+    <label>重さ (g): <input type="number" id="weight"></label>
+    <label>値段 (円): <input type="number" id="price"></label>
+    <button class="add-btn" onclick="addData()">追加</button>
+  </div>
+
+  <table id="resultTable">
+    <thead>
+      <tr>
+        <th>商品名</th>
+        <th>重さ (g)</th>
+        <th>値段 (円)</th>
+        <th>100gあたり (円)</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    let items = [];
+
+    // 保存する関数
+    function saveData() {
+      localStorage.setItem("priceData", JSON.stringify(items));
+    }
+
+    // データを読み込む関数
+    function loadData() {
+      const saved = localStorage.getItem("priceData");
+      if (saved) {
+        items = JSON.parse(saved);
+        renderTable();
+      }
+    }
+
+    // 表に描画する関数
+    function renderTable() {
+      const tableBody = document.querySelector('#resultTable tbody');
+      tableBody.innerHTML = "";
+
+      items.forEach((item, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${item.name}</td>
+          <td>${item.weight}</td>
+          <td>${item.price.toFixed(2)}</td>
+          <td>${item.per100g.toFixed(2)}</td>
+          <td>
+            <button class="del-btn" onclick="deleteData(${index})">削除</button>
+            <button class="off-btn" onclick="toggleDiscount(${index})">
+              ${item.discounted ? "戻す" : "5%OFF"}
+            </button>
+          </td>
+        `;
+        tableBody.appendChild(row);
+      });
+    }
+
+    // 追加する関数
+    function addData() {
+      const name = document.getElementById('name').value.trim();
+      const w = parseFloat(document.getElementById('weight').value);
+      const p = parseFloat(document.getElementById('price').value);
+
+      if (!name || isNaN(w) || isNaN(p) || w <= 0 || p <= 0) {
+        alert("商品名・重さ・値段を正しく入力してね。");
+        return;
+      }
+
+      const per100g = p / w * 100;
+      items.push({ 
+        name, 
+        weight: w, 
+        price: p, 
+        originalPrice: p, 
+        per100g, 
+        discounted: false 
+      });
+
+      saveData();
+      renderTable();
+
+      document.getElementById('name').value = "";
+      document.getElementById('weight').value = "";
+      document.getElementById('price').value = "";
+    }
+
+    // 削除する関数
+    function deleteData(index) {
+      items.splice(index, 1);
+      saveData();
+      renderTable();
+    }
+
+    // 5%OFFと戻すを切り替える関数
+    function toggleDiscount(index) {
+      let item = items[index];
+      if (item.discounted) {
+        // 戻す
+        item.price = item.originalPrice;
+        item.discounted = false;
+      } else {
+        // 5%OFF
+        item.price = item.originalPrice * 0.95;
+        item.discounted = true;
+      }
+      item.per100g = item.price / item.weight * 100;
+      saveData();
+      renderTable();
+    }
+
+    // 夜間モード切替
+    const toggleBtn = document.getElementById('modeToggle');
+    function setMode(dark) {
+      if (dark) {
+        document.body.classList.add('dark');
+        toggleBtn.textContent = "☀️";
+        localStorage.setItem("darkMode", "true");
+      } else {
+        document.body.classList.remove('dark');
+        toggleBtn.textContent = "🌙";
+        localStorage.setItem("darkMode", "false");
+      }
+    }
+    toggleBtn.addEventListener('click', () => {
+      const isDark = document.body.classList.contains('dark');
+      setMode(!isDark);
+    });
+
+    // ページ読み込み時に復元
+    window.onload = () => {
+      loadData();
+      const darkMode = localStorage.getItem("darkMode") === "true";
+      setMode(darkMode);
+    };
+  </script>
+</body>
+</html>
